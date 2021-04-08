@@ -7,7 +7,8 @@ import strax
 import utilix
 import straxen
 import os
-
+from tempfile import gettempdir
+import typing as ty
 export, __all__ = strax.exporter()
 
 corrections_w_file = ['mlp_model', 'gcn_model', 'cnn_model',
@@ -237,17 +238,38 @@ class CorrectionsManagementServices():
         return time.replace(tzinfo=pytz.utc)
 
 
-def cacheable_naming(*args, fmt='.npy', base='./resource_cache/'):
-    """Convert args to consistent naming convention for array to be cached"""
-    if not os.path.exists(base):
-        try:
-            os.mkdir(base)
-        except (FileExistsError, PermissionError):
-            pass
+def cacheable_naming(*args,
+                     fmt: str = '.npy',
+                     bases: ty.Union[str, list, tuple, None] = None,
+                     ) -> str:
+    """
+    Convert args to consistent naming convention for array to be cached
+    :param args: arguments to be concerted into a name, should all be
+        strings
+    :param fmt: file format, default is 'npy'
+    :param bases: folders to cache in, if nothing is specified, the
+        default folders are used
+    :return: path to a place where a file can be stored.
+    """
+    if bases is None:
+        bases = (os.path.join(gettempdir(), 'resource_cache'),
+                 'resource_cache')
+
+    for base in strax.to_str_tuple(bases):
+        if not os.path.exists(base):
+            try:
+                os.makedirs(base, exist_ok=True)
+            except PermissionError:
+                continue
+        if os.access(base, os.W_OK):
+            break
+        print(base)
+    else:
+        raise ValueError(f'None of {bases} susceptible')
     for arg in args:
         if not type(arg) == str:
             raise TypeError(f'One or more args of {args} are not strings')
-    return base + '_'.join(args) + fmt
+    return os.path.join(base, '_'.join(args) + fmt)
 
 
 class GainsNotFoundError(Exception):
