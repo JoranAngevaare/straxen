@@ -20,6 +20,7 @@ import numba
 from warnings import warn
 import strax
 import straxen
+from tempfile import gettempdir
 
 export, __all__ = strax.exporter()
 __all__ += ['straxen_dir', 'first_sr1_run', 'tpc_r', 'tpc_z', 'aux_repo',
@@ -194,9 +195,10 @@ def resource_from_url(html: str, fmt='text'):
     # Web resource; look first in on-disk cache
     # to prevent repeated downloads.
     cache_fn = strax.utils.deterministic_hash(html)
-    cache_folders = ['./resource_cache',
-                     '/tmp/straxen_resource_cache',
-                     '/dali/lgrandi/strax/resource_cache']
+    cache_folders = ['/tmp/straxen_resource_cache',
+                     '/dali/lgrandi/strax/resource_cache',
+                     './resource_cache',
+                     ]
     for cache_folder in cache_folders:
         try:
             os.makedirs(cache_folder, exist_ok=True)
@@ -295,11 +297,23 @@ def get_secret(x):
 @export
 def download_test_data():
     """Downloads strax test data to strax_test_data in the current directory"""
-    blob = get_resource('https://raw.githubusercontent.com/XENONnT/strax_auxiliary_files/11929e7595e178dd335d59727024847efde530fb/strax_test_data_straxv0.9.tar',
-                        fmt='binary')
-    f = io.BytesIO(blob)
-    tf = tarfile.open(fileobj=f)
-    tf.extractall()
+    for folder in (gettempdir(), '.'):
+        if os.access(folder, os.W_OK):
+            break
+    else:
+        raise PermissionError(f'Cannot download data to {os.path.abspath(".")}')
+    if not os.path.exists(
+            os.path.join(folder,
+                         'strax_test_data',
+                         '180423_1021-raw_records-7k65yaooed')):
+        # Data is not available yet, lets get it
+        blob = get_resource('https://raw.githubusercontent.com/XENONnT/strax_auxiliary_files/11929e7595e178dd335d59727024847efde530fb/strax_test_data_straxv0.9.tar',  # noqa
+                            fmt='binary')
+        f = io.BytesIO(blob)
+        tf = tarfile.open(fileobj=f)
+
+        tf.extractall()
+    return os.path.join(os.path.abspath(folder), 'strax_test_data')
 
 
 @export

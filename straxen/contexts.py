@@ -278,11 +278,11 @@ x1t_common_config = dict(
 
 def demo():
     """Return strax context used in the straxen demo notebook"""
-    straxen.download_test_data()
+    test_data_folder = straxen.download_test_data()
 
     st = strax.Context(
         storage=[strax.DataDirectory('./strax_data'),
-                 strax.DataDirectory('./strax_test_data',
+                 strax.DataDirectory(test_data_folder,
                                      deep_scan=True,
                                      provide_run_metadata=True,
                                      readonly=True)],

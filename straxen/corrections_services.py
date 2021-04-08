@@ -263,7 +263,6 @@ def cacheable_naming(*args,
                 continue
         if os.access(base, os.W_OK):
             break
-        print(base)
     else:
         raise ValueError(f'None of {bases} susceptible')
     for arg in args:
