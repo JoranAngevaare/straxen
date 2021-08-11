@@ -9,12 +9,7 @@ from tqdm import tqdm
 from shutil import move
 import hashlib
 from pymongo.collection import Collection as pymongo_collection
-
-try:
-    import utilix
-except (RuntimeError, FileNotFoundError):
-    # We might be on a travis job
-    pass
+import utilix
 from straxen import uconfig
 
 export, __all__ = exporter()
@@ -73,7 +68,7 @@ class GridFsInterface:
             }
             # We can safely hard-code the collection as that is always
             # the same with GridFS.
-            collection = utilix.rundb.pymongo_collection(
+            collection = utilix.rundb.xent_collection(
                 **mongo_kwargs,
                 collection='fs.files')
         else:
@@ -183,7 +178,7 @@ class GridFsInterface:
             return ""
         # Also, disable all the  Use of insecure MD2, MD4, MD5, or SHA1
         # hash function violations in this function.
-        # bandit: disable=B303
+        # disable bandit
         hash_md5 = hashlib.md5()
         with open(abs_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -269,9 +264,9 @@ class MongoDownloader(GridFsInterface):
         # We are going to set a place where to store the files. It's 
         # either specified by the user or we use these defaults:
         if store_files_at is None:
-            store_files_at = ('./resource_cache',
-                              '/tmp/straxen_resource_cache/' 
+            store_files_at = ('/tmp/straxen_resource_cache/',
                               '/dali/lgrandi/strax/resource_cache',
+                              './resource_cache',  
                               )
         elif not isinstance(store_files_at, (tuple, str, list)):
             raise ValueError(f'{store_files_at} should be tuple of paths!')
@@ -334,6 +329,7 @@ class MongoDownloader(GridFsInterface):
 
                 with open(temp_path, 'wb') as stored_file:
                     # This is were we do the actual downloading!
+                    warn(f'Downloading {config_name} to {destination_path}')
                     stored_file.write(fs_object.read())
 
                 if not os.path.exists(destination_path):

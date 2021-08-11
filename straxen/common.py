@@ -3,10 +3,12 @@ import configparser
 import gzip
 import inspect
 import io
+import commentjson
 import json
 import os
 import os.path as osp
 import pickle
+import dill
 import socket
 import sys
 import tarfile
@@ -21,22 +23,26 @@ import strax
 import straxen
 
 export, __all__ = strax.exporter()
-__all__ += ['straxen_dir', 'first_sr1_run', 'tpc_r', 'aux_repo',
-            'n_tpc_pmts', 'n_top_pmts', 'n_hard_aqmon_start', 'ADC_TO_E', 
-            'n_nveto_pmts', 'n_mveto_pmts']
+__all__ += ['straxen_dir', 'first_sr1_run', 'tpc_r', 'tpc_z', 'aux_repo',
+            'n_tpc_pmts', 'n_top_pmts', 'n_hard_aqmon_start', 'ADC_TO_E',
+            'n_nveto_pmts', 'n_mveto_pmts', 'tpc_pmt_radius', 'cryostat_outer_radius']
 
 straxen_dir = os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe())))
 
 aux_repo = 'https://raw.githubusercontent.com/XENONnT/strax_auxiliary_files/'
 
-tpc_r = 66.4   # Not really radius, but apothem: from MC paper draft 1.0
+tpc_r = 66.4  # [CM], Not really radius, but apothem: from MC paper draft 1.0
+cryostat_outer_radius = 81.5  # [cm] radius of the outer cylinder wall.
+tpc_z = 148.6515  # [CM], distance between the bottom of gate and top of cathode wires
 n_tpc_pmts = 494
 n_top_pmts = 253
 n_hard_aqmon_start = 800
 
 n_nveto_pmts = 120
 n_mveto_pmts = 84
+
+tpc_pmt_radius = 7.62 / 2  # cm
 
 # Convert from ADC * samples to electrons emitted by PMT
 # see pax.dsputils.adc_to_pe for calculation. Saving this number in straxen as
@@ -63,7 +69,7 @@ def pmt_positions(xenon1t=False):
             dict(x=q['position']['x'],
                  y=q['position']['y'],
                  i=q['pmt_position'],
-                 array=q.get('array','other'))
+                 array=q.get('array', 'other'))
             for q in pmt_config[:248]])
     else:
         return resource_from_url(
@@ -100,20 +106,26 @@ def open_resource(file_name: str, fmt='text'):
             result = result_slurped
     elif fmt == 'pkl':
         with open(file_name, 'rb') as f:
-            result = pickle.load(f)
+            result = pickle.load(f)  # nosec
     elif fmt == 'pkl.gz':
         with gzip.open(file_name, 'rb') as f:
-            result = pickle.load(f)
+            result = pickle.load(f)  # nosec
+    elif fmt == 'dill':
+        with open(file_name, 'rb') as f:
+            result = dill.load(f)  # nosec
+    elif fmt == 'dill.gz':
+        with gzip.open(file_name, 'rb') as f:
+            result = dill.load(f)  # nosec
     elif fmt == 'json.gz':
         with gzip.open(file_name, 'rb') as f:
             result = json.load(f)
     elif fmt == 'json':
         with open(file_name, mode='r') as f:
-            result = json.load(f)
+            result = commentjson.load(f)
     elif fmt == 'binary':
         with open(file_name, mode='rb') as f:
             result = f.read()
-    elif fmt == 'text':
+    elif fmt in ['text', 'txt']:
         with open(file_name, mode='r') as f:
             result = f.read()
     elif fmt == 'csv':
@@ -166,7 +178,7 @@ def get_resource(x: str, fmt='text'):
         f'cannot download it from anywhere.')
 
 
-# Deprecated placeholder for resource management system in the future?
+# Legacy loader for public URL files
 def resource_from_url(html: str, fmt='text'):
     """
     Return contents of file or URL html
@@ -179,10 +191,6 @@ def resource_from_url(html: str, fmt='text'):
     your lamentations shall pass over the mountains, etc.
     :return: The file opened as specified per it's format
     """
-    warn("Loading files from a URL is deprecated, and will be replaced "
-         "by loading from the database. See:"
-         "https://github.com/XENONnT/straxen/pull/311",
-         DeprecationWarning)
 
     if '://' not in html:
         raise ValueError('Can only open urls!')
@@ -204,6 +212,7 @@ def resource_from_url(html: str, fmt='text'):
             break
     else:
         print(f'Did not find {cache_fn} in cache, downloading {html}')
+        # disable bandit
         result = urllib.request.urlopen(html).read()
         is_binary = fmt not in _text_formats
         if not is_binary:
@@ -215,14 +224,12 @@ def resource_from_url(html: str, fmt='text'):
         for cache_folder in cache_folders:
             if not osp.exists(cache_folder):
                 continue
+            if not os.access(cache_folder, os.W_OK):
+                continue
             cf = osp.join(cache_folder, cache_fn)
-            try:
-                with open(cf, mode=m) as f:
-                    f.write(result)
-            except Exception:
-                pass
-            else:
-                available_cf = cf
+            with open(cf, mode=m) as f:
+                f.write(result)
+            available_cf = cf
         if available_cf is None:
             raise RuntimeError(
                 f"Could not store {html} in on-disk cache,"
@@ -291,7 +298,7 @@ def get_secret(x):
 @export
 def download_test_data():
     """Downloads strax test data to strax_test_data in the current directory"""
-    blob = get_resource('https://raw.githubusercontent.com/XENONnT/strax_auxiliary_files/11929e7595e178dd335d59727024847efde530fb/strax_test_data_straxv0.9.tar',
+    blob = get_resource('https://raw.githubusercontent.com/XENONnT/strax_auxiliary_files/609b492e1389369734c7d2cbabb38059f14fc05e/strax_files/strax_test_data_straxv0.9.tar',  #  noqa
                         fmt='binary')
     f = io.BytesIO(blob)
     tf = tarfile.open(fileobj=f)
@@ -315,6 +322,85 @@ def get_livetime_sec(context, run_id, things=None):
             return md['livetime']
         else:
             return (md['end'] - md['start']).total_seconds()
+
+
+@export
+def pre_apply_function(data, run_id, target, function_name='pre_apply_function'):
+    """
+    Prior to returning the data (from one chunk) see if any function(s) need to
+    be applied.
+
+    :param data: one chunk of data for the requested target(s)
+    :param run_id: Single run-id of of the chunk of data
+    :param target: one or more targets
+    :param function_name: the name of the function to be applied. The
+        function_name.py should be stored in the database.
+    :return: Data where the function is applied.
+    """
+    if function_name not in _resource_cache:
+        # only load the function once and put it in the resource cache
+        function_file = f'{function_name}.py'
+        function_file = _overwrite_testing_function_file(function_file)
+        function = get_resource(function_file, fmt='txt')
+        # pylint: disable=exec-used
+        exec(function)
+        # Cache the function to reduce reloading & eval operations
+        _resource_cache[function_name] = locals().get(function_name)
+    data = _resource_cache[function_name](data, run_id, strax.to_str_tuple(target))
+    return data
+
+
+def _overwrite_testing_function_file(function_file):
+    """For testing purposes allow this function file to be loaded from HOME/testing_folder"""
+    if not straxen._is_on_pytest():
+        # If we are not on a pytest, never try using a local file.
+        return function_file
+
+    home = os.environ.get('HOME')
+    if home is None:
+        # Impossible to load from non-existent folder
+        return function_file
+
+    testing_file = os.path.join(home, function_file)
+
+    if os.path.exists(testing_file):
+        # For testing purposes allow loading from 'home/testing_folder'
+        warn(f'Using local function: {function_file} from {testing_file}! '
+             f'If you are not integrated testing on github you should '
+             f'absolutely remove this file. (See #559)')
+        function_file = testing_file
+
+    return function_file
+
+
+@export
+def check_loading_allowed(data, run_id, target,
+                          max_in_disallowed = 1,
+                          disallowed=('event_positions',
+                                      'corrected_areas',
+                                      'energy_estimates')
+                          ):
+    """
+    Check that the loading of the specified targets is not
+    disallowed
+
+    :param data: chunk of data
+    :param run_id: run_id of the run
+    :param target: list of targets requested by the user
+    :param max_in_disallowed: the max number of targets that are
+        in the disallowed list
+    :param disallowed: list of targets that are not allowed to be
+        loaded simultaneously by the user
+    :return: data
+    :raise: RuntimeError if more than max_in_disallowed targets
+        are requested
+    """
+    n_targets_in_disallowed = sum([t in disallowed for t in
+                                   strax.to_str_tuple(target)])
+    if n_targets_in_disallowed > max_in_disallowed:
+        raise RuntimeError(
+            f'Don\'t load {disallowed} separately, use "event_info" instead')
+    return data
 
 
 @export
@@ -371,6 +457,9 @@ def remap_channels(data, verbose=True, safe_copy=False, _tqdm=False, ):
         for _rep in replace:
             if _rep not in data_keys:
                 # Apparently this data doesn't have the entry we want to replace
+                continue
+            if _rep == 'channel' and _dat['channel'].ndim != 1:
+                # Only convert channel if they are flat and not nested.
                 continue
             # Make a buffer we can overwrite and replace with an remapped array
             buff = np.array(_data[_rep])
@@ -460,13 +549,15 @@ def remap_channels(data, verbose=True, safe_copy=False, _tqdm=False, ):
     return _dat
 
 
-def remap_old(data, targets, works_on_target=''):
+@export
+def remap_old(data, targets, run_id, works_on_target=''):
     """
     If the data is of before the time sectors were re-cabled, apply a software remap
         otherwise just return the data is it is.
     :param data: numpy array of data with at least the field time. It is assumed the data
         is sorted by time
     :param targets: targets in the st.get_array to get
+    :param run_id: required positional argument of apply_function_to_data in strax
     :param works_on_target: regex match string to match any of the targets. By default set
         to '' such that any target in the targets would be remapped (which is what we want
         as channels are present in most data types). If one only wants records (no
@@ -481,10 +572,8 @@ def remap_old(data, targets, works_on_target=''):
         pass
     elif len(data):
         # select the old data and do the remapping for this
-        warn("Correcting data of runs with mis-cabled PMTs. \nSee: https://"
-             "xe1t-wiki.lngs.infn.it/doku.php?id=xenon:xenonnt:dsg:daq:sector_swap. "
-             "Don't use '' selection_str='channel == xx' '' (github.com/XENONnT/straxen/issues/239)")
         mask = data['time'] < TSTART_FIRST_CORRECTLY_CABLED_RUN
+        data = data.copy()
         data[mask] = remap_channels(data[mask])
     return data
 
