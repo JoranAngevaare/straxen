@@ -24,6 +24,8 @@ on:
   push:
     branches:
       - master
+      - div_zero
+      
 
 jobs:
   update:
