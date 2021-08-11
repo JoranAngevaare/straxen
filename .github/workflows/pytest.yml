@@ -21,10 +21,12 @@ on:
     branches:
       - master
       - stable
+      - joran_master
   push:
     branches:
       - master
       - replicate_odd_stuff
+      - joran_master
 
 jobs:
   update:
