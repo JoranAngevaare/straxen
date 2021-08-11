@@ -92,6 +92,17 @@ jobs:
         if: matrix.test == 'pytest_no_database' || matrix.test == 'pytest'
         run: |
           python setup.py test -v
+          pip install -r extra_requirements/requirements-tests.txt
+          git clone https://github.com/AxFoundation/strax
+          for i in {0..3}
+            do
+              pytest strax/ -vs
+            done
+          for k in {0..3}
+            do
+              pytest -vs
+            done
+
       - name: Coveralls
         # Make the coverage report and upload
         env:
