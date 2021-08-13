@@ -89,7 +89,7 @@ class Peaklets(strax.Plugin):
     provides = ('peaklets', 'lone_hits')
     data_kind = dict(peaklets='peaklets',
                      lone_hits='lone_hits')
-    parallel = 'process'
+    parallel = True
     compressor = 'zstd'
 
     __version__ = '0.3.10'
@@ -711,7 +711,7 @@ def merge_s2_threshold(log_area, gap_thresholds):
 @export
 class MergedS2sHighEnergy(MergedS2s):
     __doc__ = HE_PREAMBLE + MergedS2s.__doc__
-    depends_on = ('peaklets_he', 'peaklet_classification_he')
+    depends_on = ('peaklets_he', 'peaklet_classification_he', 'lone_hist_he')
     data_kind = 'merged_s2s_he'
     provides = 'merged_s2s_he'
     __version__ = '0.0.1'
@@ -720,7 +720,7 @@ class MergedS2sHighEnergy(MergedS2s):
     def infer_dtype(self):
         return strax.unpack_dtype(self.deps['peaklets_he'].dtype_for('peaklets_he'))
 
-    def compute(self, peaklets_he):
+    def compute(self, peaklets_he, lone_hits_he):
         return super().compute(peaklets_he)
 
 
