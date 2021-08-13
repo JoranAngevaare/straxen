@@ -59,6 +59,8 @@ def test_several():
 
             print("Downloading test data (if needed)")
             st = straxen.contexts.demo()
+            st.config['timeout'] = 120
+
             st.make(test_run_id_1T, 'records')
             # Ignore strax-internal warnings
             st.set_context_config({'free_options': tuple(st.config.keys())})

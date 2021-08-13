@@ -169,6 +169,8 @@ def _run_plugins(st,
 
 
 def _update_context(st, max_workers, fallback_gains=None, nt=True):
+    # Don't allow deadlocks
+    st.config['timeout'] = 120
     # Change config to allow for testing both multiprocessing and lazy mode
     st.set_context_config({'forbid_creation_of': forbidden_plugins})
     # Ignore strax-internal warnings

@@ -20,6 +20,7 @@ class TestBasics(unittest.TestCase):
 
         print("Downloading test data (if needed)")
         st = straxen.contexts.demo()
+        st.config['timeout'] = 120
         cls.run_id = test_run_id_1T
         cls.st = st
 
