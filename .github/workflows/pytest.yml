@@ -91,7 +91,7 @@ jobs:
         # This is running a normal test
         if: matrix.test == 'pytest_no_database' || matrix.test == 'pytest'
         run: |
-          python setup.py test -v
+          pytest -v --log-level=DEBUG --durations 0
       - name: Coveralls
         # Make the coverage report and upload
         env:
