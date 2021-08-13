@@ -89,7 +89,7 @@ class Peaklets(strax.Plugin):
     provides = ('peaklets', 'lone_hits')
     data_kind = dict(peaklets='peaklets',
                      lone_hits='lone_hits')
-    parallel = False
+    parallel = True
     compressor = 'zstd'
 
     __version__ = '0.3.10'
@@ -439,14 +439,16 @@ def _peak_saturation_correction_inner(channel_saturated, records, p,
 class PeakletsHighEnergy(Peaklets):
     __doc__ = HE_PREAMBLE + Peaklets.__doc__
     depends_on = 'records_he'
-    provides = 'peaklets_he'
+    provides = ('peaklets_he', 'lone_hits_he')
     data_kind = 'peaklets_he'
     __version__ = '0.0.2'
     child_plugin = True
     save_when = strax.SaveWhen.TARGET
 
     def infer_dtype(self):
-        return strax.peak_dtype(n_channels=self.config['n_he_pmts'])
+        return dict(peaklets_he=strax.peak_dtype(
+                        n_channels=self.config['n_he_pmts']),
+                    lone_hits_he=strax.hit_dtype)
 
     def setup(self):
         self.to_pe = straxen.get_correction_from_cmt(self.run_id,
@@ -470,7 +472,7 @@ class PeakletsHighEnergy(Peaklets):
 
     def compute(self, records_he, start, end):
         result = super().compute(records_he, start, end)
-        return result['peaklets']
+        return result
 
 
 @export
@@ -711,7 +713,7 @@ def merge_s2_threshold(log_area, gap_thresholds):
 @export
 class MergedS2sHighEnergy(MergedS2s):
     __doc__ = HE_PREAMBLE + MergedS2s.__doc__
-    depends_on = ('peaklets_he', 'peaklet_classification_he', 'lone_hist_he')
+    depends_on = ('peaklets_he', 'peaklet_classification_he', 'lone_hits_he')
     data_kind = 'merged_s2s_he'
     provides = 'merged_s2s_he'
     __version__ = '0.0.1'
@@ -721,7 +723,7 @@ class MergedS2sHighEnergy(MergedS2s):
         return strax.unpack_dtype(self.deps['peaklets_he'].dtype_for('peaklets_he'))
 
     def compute(self, peaklets_he, lone_hits_he):
-        return super().compute(peaklets_he)
+        return super().compute(peaklets_he, lone_hits_he)
 
 
 @export
