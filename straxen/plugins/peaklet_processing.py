@@ -89,7 +89,7 @@ class Peaklets(strax.Plugin):
     provides = ('peaklets', 'lone_hits')
     data_kind = dict(peaklets='peaklets',
                      lone_hits='lone_hits')
-    parallel = True
+    parallel = False
     compressor = 'zstd'
 
     __version__ = '0.3.10'
