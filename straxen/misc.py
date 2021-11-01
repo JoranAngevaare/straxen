@@ -11,6 +11,7 @@ from importlib import import_module
 from git import Repo, InvalidGitRepositoryError
 from configparser import NoSectionError
 import typing as ty
+from collections import defaultdict
 
 export, __all__ = strax.exporter()
 
@@ -40,7 +41,6 @@ def dataframe_to_wiki(df, float_digits=5, title='Awesome table',
             for i, x in enumerate(row.values.tolist())]) + ' |\n'
     return table
 
-
 @export
 def print_versions(modules=('strax', 'straxen', 'cutax'),
                    return_string=False,
@@ -61,6 +61,7 @@ def print_versions(modules=('strax', 'straxen', 'cutax'),
                f'versions and installation paths:')
     py_version = sys.version.replace(' (', '\t(').replace('\n', '')
     message += f"\npython\tv{py_version}"
+    versions = defaultdict(list)
     for m in strax.to_str_tuple(modules):
         try:
             mod = import_module(m)
@@ -69,11 +70,16 @@ def print_versions(modules=('strax', 'straxen', 'cutax'),
             continue
 
         message += f'\n{m}'
+        v = None
+        p = None
+        git = None
         if hasattr(mod, '__version__'):
             message += f'\tv{mod.__version__}'
+            v = mod.__version__
         if hasattr(mod, '__path__'):
             module_path = mod.__path__[0]
             message += f'\t{module_path}'
+            p = module_path
             if include_git:
                 try:
                     repo = Repo(module_path, search_parent_directories=True)
@@ -90,9 +96,18 @@ def print_versions(modules=('strax', 'straxen', 'cutax'),
                     except TypeError:
                         commit_hash = 'unknown'
                     message += f'\tgit branch:{branch} | {commit_hash[:7]}'
+                    git =  f'branch:{branch} | {commit_hash[:7]}'
+        versions['module'].append(m)
+        versions['path'].append(p)
+        versions['version'].append(v)
+        versions['git'].append(git)
     if return_string:
         return message
     print(message)
+    return pd.DataFrame(versions)
+df = print_versions()
+df
+print(df.to_string(index=False))
 
 
 @export
