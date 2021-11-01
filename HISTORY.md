@@ -1,3 +1,94 @@
+1.1.2 / 2021-10-27
+-------------------
+minor / patches:
+- Plugin for afterpulse processing (#549)
+- Veto online monitor (#707)
+- Refactor straxen tests (#703)
+- WFSim registry as argument for simulations context (#713)
+- Update S1 AFT map in event pattern fit (#697)
+
+fixes/tests:
+- Set default drift time as nan (#700)
+- Revert auto inclusion of rucio remote #688 (#701)
+- fix bug in CMT (#710)
+- Fix one year querries (#711
+- Test new numba (#702)
+- Unify CMT call in contexts (#717)
+- Small codefactor patch (#714)
+- test nv with nv data (#709)
+- Add small test for wfsim (#716)
+
+
+1.1.1 / 2021-10-19
+-------------------
+ - Fix to test for RunDB frontend when no test DB is sourced (6da2233)
+
+
+1.1.0 / 2021-10-18
+-------------------
+major / minor:
+
+- Previous S2 Shadow Plugin draft (#664)
+- Use admix in straxen (#688)
+- Add posdiff plugin (#669)
+- updated S2 corrected area (#686)
+- Version bump of hitlets (#690)
+- Add n saturated channels (#691)
+- add small tool to extract run comments from database (#692)
+- Update online_monitor_nv to v0.0.3 (#696)
+
+
+patches and fixes:
+ 
+- Use read by index and check for NaNs (#661)
+- Add small feature for printing versions of git (#665)
+- Fix minianalyses from apply_selection (#666)
+- fix some warnings from testing (#667)
+- Add source to runs table (#673)
+- Pbar patch for rundb query (#685)
+- Implement SDSC as a local RSE for Expanse (#687)
+- Skips superruns in rucio frontend (#689)
+- Warn about non-loadable loggers (#693)
+- Add RunDb read/write-test (#695)
+- Fix bug in rucio frontend (#699)
+
+
+
+1.0.0 / 2021-09-01
+-------------------
+major / minor:
+    
+- merge s2 without s1 (#645)
+- First nVeto monitor plugin (#634)
+- Peak event veto tagging (#618)
+- Fix peaklet area bias (#601)
+- Add lone hit information to merged S2s. (#623)
+    
+
+patches and fixes:
+    
+- Fix n_hits of peaks (#646) 
+- Update requirements for strax (#644)
+- Modifications of nT simulation context (#602)
+- Straxer for other packages (#595)
+- [Bug fix] alt_s{i}_delay computation (#598)
+- Bump version refactor code for cleanliness. (#597)
+- Increase buffer size (#604)
+- Stop testing py3.6 (#621)
+- Remove online event monitor (#620)
+- Add matplotlib to test requirements (#626)
+- Fix rundb select runs with superruns (#627)
+- Change EventInfo to save when explicit (#628)
+- Update test data (#631)
+- Allow database to not be initialized (#636)
+- new plot_pmts (#637)
+- Speed up event pattern fit (#625)
+- kwargs for saver (#639)
+- Add a plugin for external trigger run on nVeto calibration (#630)
+- Fix veto event positions (#641)
+- Use rucio from straxen & nest RucioRemote imports (#592)
+
+
 0.19.3 / 2021-07-16
 -------------------
 - Rewrite EventBasics, set event level S1 tight coincidence (#569)

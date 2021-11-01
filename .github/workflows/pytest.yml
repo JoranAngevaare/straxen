@@ -18,21 +18,17 @@ on:
   release:
     types: [created]
   pull_request:
-    branches:
-      - master
-      - stable
-      - joran_master
   push:
     branches:
       - master
-      - joran_master
+      - stable
 
 jobs:
   update:
     name: "${{ matrix.test }}_py${{ matrix.python-version }}"
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: True
+      fail-fast: False
       matrix:
         python-version: [3.7, 3.8, 3.9]
         test: ['coveralls', 'pytest', 'pytest_no_database']
@@ -54,11 +50,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Checkout repo
         uses: actions/checkout@v2
+      - name: Remove strax from reqs.
+        if: matrix.test == 'coveralls' && env.HAVE_ACCESS_TO_SECTETS != null
+        env:
+          HAVE_ACCESS_TO_SECTETS: ${{ secrets.RUNDB_API_URL }}
+        run: |
+          bash .github/scripts/filter_strax_from_requirements.sh
       - name: Install requirements for tests and latest strax
         run: |
             pip install -r extra_requirements/requirements-tests.txt
-            pip install git+https://github.com/AxFoundation/strax.git
-
+            git clone https://github.com/AxFoundation/strax ../strax
+            pip install -e ../strax
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.6.0
+        with:
+          mongodb-version: 4.2
       # Secrets and required files
       - name: patch utilix file
         # Patch this file if we want to have access to the database
@@ -85,18 +91,20 @@ jobs:
         env:
           HAVE_ACCESS_TO_SECTETS: ${{ secrets.RUNDB_API_URL }}
         if: env.HAVE_ACCESS_TO_SECTETS == null || matrix.test == 'pytest_no_database'
-        run: |
-          bash .github/scripts/create_pre_apply_function.sh $HOME
-
-      # Run tests
+        run: bash .github/scripts/create_pre_apply_function.sh $HOME
       - name: Test package
         # This is running a normal test
         if: matrix.test == 'pytest_no_database' || matrix.test == 'pytest'
+        env:
+          ALLOW_WFSIM_TEST: 1
+          TEST_MONGO_URI:  'mongodb://localhost:27017/'
         run: |
-          python setup.py test -v
+          pytest -rsxv --durations 0
       - name: Coveralls
         # Make the coverage report and upload
         env:
+          TEST_MONGO_URI:  'mongodb://localhost:27017/'
+          ALLOW_WFSIM_TEST: 1
           NUMBA_DISABLE_JIT: 1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # We need to check if we had access to the secrets, otherwise coveralls
@@ -107,7 +115,6 @@ jobs:
         run: |
           coverage run --source=straxen setup.py test -v
           coveralls --service=github
-
       # Done
       - name: goodbye
         run: echo "tests done, bye bye"

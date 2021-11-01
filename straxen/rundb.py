@@ -5,7 +5,7 @@ import socket
 from tqdm import tqdm
 from copy import deepcopy
 import strax
-from .rucio import key_to_rucio_did
+from .rucio import key_to_rucio_did, RucioLocalBackend
 import warnings
 
 try:
@@ -122,8 +122,7 @@ class RunDB(strax.StorageFrontend):
                 self.available_query.append({'host': host_alias})
 
         if self.rucio_path is not None:
-            # TODO replace with rucio backend in the rucio module
-            self.backends.append(strax.rucio(self.rucio_path))
+            self.backends.append(RucioLocalBackend(self.rucio_path))
             # When querying for rucio, add that it should be dali-userdisk
             self.available_query.append({'host': 'rucio-catalogue',
                                          'location': 'UC_DALI_USERDISK',
@@ -183,9 +182,8 @@ class RunDB(strax.StorageFrontend):
                 datum = doc['data'][0]
                 error_message = f'Expected {rucio_key} got data on {datum["location"]}'
                 assert datum.get('did', '') == rucio_key, error_message
-                backend_name, backend_key = (
-                    datum['protocol'],
-                    f'{key.run_id}-{key.data_type}-{key.lineage_hash}')
+                backend_name = 'RucioLocalBackend'
+                backend_key = key_to_rucio_did(key)
                 return backend_name, backend_key
 
         dq = self._data_query(key)
@@ -268,20 +266,6 @@ class RunDB(strax.StorageFrontend):
         return [results_dict.get(k.run_id, False)
                 for k in keys]
 
-    def _list_available(self, key: strax.DataKey,
-                        allow_incomplete, fuzzy_for, fuzzy_for_options):
-        if fuzzy_for or fuzzy_for_options or allow_incomplete:
-            # The RunDB frontend can do neither fuzzy nor incomplete
-            warnings.warn('RunDB cannot do fuzzy or incomplete')
-
-        q = self._data_query(key)
-        q.update(self.number_query())
-
-        cursor = self.collection.find(
-            q,
-            projection=[self.runid_field])
-        return [x[self.runid_field] for x in cursor]
-
     def _scan_runs(self, store_fields):
         query = self.number_query()
         projection = strax.to_str_tuple(list(store_fields))
@@ -292,8 +276,9 @@ class RunDB(strax.StorageFrontend):
         cursor = self.collection.find(
             filter=query,
             projection=projection)
-        for doc in tqdm(cursor, desc='Fetching run info from MongoDB',
-                        total=cursor.count()):
+        for doc in strax.utils.tqdm(
+                cursor, desc='Fetching run info from MongoDB',
+                total=cursor.count()):
             del doc['_id']
             if self.reader_ini_name_is_mode:
                 doc['mode'] = \
@@ -302,7 +287,7 @@ class RunDB(strax.StorageFrontend):
 
     def run_metadata(self, run_id, projection=None):
         if run_id.startswith('_'):
-            # Superruns are currently not supprorted..
+            # Superruns are currently not supported..
             raise strax.DataNotAvailable
         
         if self.runid_field == 'name':
