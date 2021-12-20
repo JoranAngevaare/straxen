@@ -21,7 +21,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v2
     - name: Install python dependencies
-      uses: py-actions/py-dependency-install@v2
+      uses: py-actions/py-dependency-install@v3
     - name: Install straxen
       run: bash .github/scripts/install_straxen.sh
     # writes a utilix configuration file. Uses the secret functionality of GitHub.
