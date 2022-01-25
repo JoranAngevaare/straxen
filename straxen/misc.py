@@ -113,10 +113,10 @@ def print_versions(modules=('strax', 'straxen', 'cutax'),
     if return_string:
         return message
     print(message)
+    df = print_versions()
+    df
+    print(df.to_string(index=False))
     return pd.DataFrame(versions)
-df = print_versions()
-df
-print(df.to_string(index=False))
 
 
 @export
